@@ -1,0 +1,21 @@
+buildscript {
+    repositories {
+        jcenter()
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.google.gms:google-services:4.3.10"
+    }
+}
+repositories {
+    mavenCentral()
+    google()
+    maven {
+        url "https://maven.google.com"
+    }
+}
+
+cdvPluginPostBuildExtras.add({
+    apply plugin: 'com.google.gms.google-services'
+})

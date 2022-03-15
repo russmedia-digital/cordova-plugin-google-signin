@@ -1,0 +1,64 @@
+<?xml version='1.0' encoding='utf-8'?>
+<plugin id="com.devapps" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+    <name>GoogleSignInPlugin</name>
+    <js-module name="GoogleSignInPlugin" src="www/GoogleSignInPlugin.js">
+        <clobbers target="cordova.plugins.GoogleSignInPlugin" />
+    </js-module>
+    <platform name="android">
+        <hook src="src/android/configureProjectLevelDependency.js" type="before_build" />
+        <config-file parent="/*" target="res/xml/config.xml">
+            <feature name="GoogleSignInPlugin">
+                <param name="android-package" value="com.devapps.GoogleSignInPlugin" />
+            </feature>
+        </config-file>
+        
+        <preference name="CLIENT_ID" />
+        <config-file target="res/values/strings.xml" parent="/*">
+            <string name="default_client_id">$CLIENT_ID</string>
+        </config-file> 
+
+        <config-file parent="/*" target="AndroidManifest.xml" />
+        <resource-file src="src/android/google-services.json" target="../../google-services.json"/>
+        <source-file src="src/android/GoogleSignInPlugin.java" target-dir="src/com/devapps" />
+        <framework src="src/android/GoogleSignIn.gradle" custom="true" type="gradleReference"/>
+        <framework src="com.google.android.gms:play-services-auth:20.1.0" />
+        <framework src="com.google.android.gms:play-services-base:18.0.1" />
+        <framework src="com.google.firebase:firebase-bom:29.1.0" />
+        <framework src="com.google.firebase:firebase-auth:21.0.1" />
+    </platform>
+    <platform name="ios">
+        <config-file parent="/*" target="config.xml">
+            <feature name="GoogleSignInPlugin">
+                <param name="ios-package" value="GoogleSignInPlugin" />
+            </feature>
+        </config-file>
+        <source-file src="src/ios/GoogleSignInPlugin.m" />
+
+        <preference name="REVERSED_CLIENT_ID" />
+        <config-file target="*-Info.plist" parent="CFBundleURLTypes">
+            <array>
+              <dict>
+                  <key>CFBundleTypeRole</key>
+                  <string>Editor</string>
+                  <key>CFBundleURLName</key>
+                  <string>REVERSED_CLIENT_ID</string>
+                  <key>CFBundleURLSchemes</key>
+                  <array>
+                      <string>$REVERSED_CLIENT_ID</string>
+                  </array>
+              </dict>
+            </array>
+          </config-file>
+
+          <podspec>
+            <config>
+              <source url="https://cdn.cocoapods.org/"/>
+            </config>
+            <pods use-frameworks="true">
+              <pod name="GoogleSignIn" />
+              <pod name="GoogleUtilities" />
+            </pods>
+          </podspec>
+
+    </platform>
+</plugin>
