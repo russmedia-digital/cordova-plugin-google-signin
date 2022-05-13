@@ -165,7 +165,7 @@ public class GoogleSignInPlugin extends CordovaPlugin {
     private void processOneTap() {
         checkIfOneTapSignInCoolingPeriodShouldBeReset();
         SharedPreferences sharedPreferences = getSharedPreferences();
-        boolean shouldShowOneTapUI = sharedPreferences.getBoolean(Constants.PREF_SHOW_ONE_TAP_UI, false);
+        boolean shouldShowOneTapUI = sharedPreferences.getBoolean(Constants.PREF_SHOW_ONE_TAP_UI, true);
 
         if(shouldShowOneTapUI) {
             cordova.setActivityResultCallback(this);
