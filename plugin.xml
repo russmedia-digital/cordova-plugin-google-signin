@@ -19,6 +19,8 @@
 
         <config-file parent="/*" target="AndroidManifest.xml" />
         <source-file src="src/android/GoogleSignInPlugin.java" target-dir="src/com/devapps" />
+        <source-file src="src/android/Constants.java" target-dir="src/com/devapps" />
+        
         <framework src="src/android/GoogleSignIn.gradle" custom="true" type="gradleReference"/>
         <framework src="com.google.android.gms:play-services-auth:20.1.0" />
         <framework src="com.google.android.gms:play-services-base:18.0.1" />
