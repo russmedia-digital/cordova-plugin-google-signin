@@ -6,11 +6,6 @@ import android.content.Intent;
 import android.content.IntentSender;
 import android.content.SharedPreferences;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContract;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 
 import org.apache.cordova.CordovaInterface;
@@ -22,7 +17,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import com.google.android.gms.auth.api.credentials.Credentials;
 import com.google.android.gms.auth.api.identity.BeginSignInRequest;
 import com.google.android.gms.auth.api.identity.BeginSignInResult;
 import com.google.android.gms.auth.api.identity.Identity;
@@ -241,7 +235,7 @@ public class GoogleSignInPlugin extends CordovaPlugin {
                                 userInfo.put("email", user.getEmail());
                                 userInfo.put("photo_url", user.getPhotoUrl());
                                 userInfo.put("id_token", getTokenResult.getToken());
-                                mCallbackContext.success(getSuccessMessageInJsonString(userInfo.toString()));
+                                mCallbackContext.success(getSuccessMessageForOneTapLogin(userInfo));
                             } catch (Exception ex) {
                                 mCallbackContext.error(getErrorMessageInJsonString(ex.getMessage()));
                             }
@@ -296,14 +290,37 @@ public class GoogleSignInPlugin extends CordovaPlugin {
         }
     }
 
+    private String getSuccessMessageForOneTapLogin(JSONObject userInfo) {
+        try {
+            JSONObject response = new JSONObject();
+            response.put(Constants.JSON_STATUS, Constants.JSON_SUCCESS);
+            response.put(Constants.JSON_MESSAGE, userInfo);
+            return response.toString();
+        } catch (JSONException e) {
+            return "{\"status\": \"error\", \"message\": \"JSON error while building the response\"}";
+        }
+    }
+
     private String getSuccessMessageInJsonString(String message) {
-        return new StringBuilder("{\"").append(Constants.JSON_STATUS).append("\" : \"")
-                .append(Constants.JSON_SUCCESS).append("\", \"").append(Constants.JSON_MESSAGE).append("\" : \"").append(message).append("\"}").toString();
+        try {
+            JSONObject response = new JSONObject();
+            response.put(Constants.JSON_STATUS, Constants.JSON_SUCCESS);
+            response.put(Constants.JSON_MESSAGE, message);
+            return response.toString();
+        } catch (JSONException e) {
+            return "{\"status\": \"error\", \"message\": \"JSON error while building the response\"}";
+        }
     }
 
     private String getErrorMessageInJsonString(String errorMessage) {
-        return new StringBuilder("{\"").append(Constants.JSON_STATUS).append("\" : \"")
-                .append(Constants.JSON_ERROR).append("\", \"").append(Constants.JSON_MESSAGE).append("\" : \"").append(errorMessage).append("\"}").toString();
+        try {
+            JSONObject response = new JSONObject();
+            response.put(Constants.JSON_STATUS, Constants.JSON_ERROR);
+            response.put(Constants.JSON_MESSAGE, errorMessage);
+            return response.toString();
+        } catch (JSONException e) {
+            return "{\"status\": \"error\", \"message\": \"JSON error while building the response\"}";
+        }
     }
 
     private SharedPreferences getSharedPreferences() {
