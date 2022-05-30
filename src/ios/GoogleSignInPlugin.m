@@ -77,9 +77,10 @@
                            @"photo_url"        : imageUrl ? imageUrl.absoluteString : [NSNull null],
                            };
 
-            NSDictionary *user = @{@"user": result};
+
+            NSDictionary *response = @{@"message": result, @"status": @"success"};
             
-            CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: [self toJSONString:user]];
+            CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: [self toJSONString:response]];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:self->_callbackId];
         }
     }];
