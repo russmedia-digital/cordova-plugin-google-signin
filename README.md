@@ -20,7 +20,7 @@ You can get the SHA-1 key using the following command, debug SHA-1:
 
     keytool -list -v -alias <your-key-name> -keystore <path-to-production-keystore>
 
-For the debug keystore, you can use the below command:
+For the debug keystore, you can use the below command (default password is "android"):
 
     keytool -list -v -alias androiddebugkey -keystore ~/.android/debug.keystore
 
@@ -44,3 +44,54 @@ You should have the value for the REVERSED_CLIENT_ID and CLIENT_ID handy before 
 Example:
 
     cordova plugin add https://github.com/russmedia-digital/cordova-plugin-google-signin n --save --variable REVERSED_CLIENT_ID="com.googleusercontent.apps.741002292512-79l1vjkim5tctosr07kcm61bb4frp7cr" --variable CLIENT_ID="741002292512-cs3emldkmt4vg5e1m9o6b3bpf8i6atfp.apps.googleusercontent.com"
+
+## Usage
+
+```javascript
+cordova.plugins.GoogleSignInPlugin.signIn(
+  function (authData) {
+    // {
+    //   "status": "success",
+    //   "message": {
+    //     "id": "",
+    //     "display_name": "",
+    //     "email": "",
+    //     "photo_url": "",
+    //     "id_token": ""
+    //   }
+    // }
+    console.log(authData);
+  },
+  function (error) {
+    console.error(error);
+  }
+);
+
+cordova.plugins.GoogleSignInPlugin.isSignedIn(
+  function (success) {
+    console.log(success);
+  },
+  function (error) {
+    console.error(error);
+  }
+);
+
+cordova.plugins.GoogleSignInPlugin.signOut(
+  function (success) {
+    console.log(success);
+  },
+  function (error) {
+    console.error(error);
+  }
+);
+
+// Android only
+cordova.plugins.GoogleSignInPlugin.oneTapLogin(
+  function (success) {
+    console.log(success);
+  },
+  function (error) {
+    console.error(error);
+  }
+);
+```
