@@ -5,7 +5,7 @@
         <clobbers target="cordova.plugins.GoogleSignInPlugin" />
     </js-module>
     <platform name="android">
-        <hook src="src/android/configureProjectLevelDependency.js" type="before_build" />
+        <hook src="src/android/configureProjectLevelDependency.js" type="after_prepare" />
         <config-file parent="/*" target="res/xml/config.xml">
             <feature name="GoogleSignInPlugin">
                 <param name="android-package" value="com.devapps.GoogleSignInPlugin" />
