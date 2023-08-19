@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 function addProjectLevelDependency(platformRoot) {
-    const artifactVersion = "com.google.gms:google-services:4.3.10";
+    const artifactVersion = "com.google.gms:google-services:4.3.14";
     const dependency = 'classpath "' + artifactVersion + '"';
 
     const projectBuildFile = path.join(platformRoot, "build.gradle");
