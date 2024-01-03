@@ -39,7 +39,9 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GetTokenResult;
 import com.google.firebase.auth.GoogleAuthProvider;
+import com.sun.source.tree.Scope;
 
+import java.util.ArrayList;
 import java.util.Date;
 
 public class GoogleSignInPlugin extends CordovaPlugin {
@@ -56,6 +58,9 @@ public class GoogleSignInPlugin extends CordovaPlugin {
     private Context mContext;
     private Activity mCurrentActivity;
     private CallbackContext mCallbackContext;
+
+    //Firas
+    private String mScopes = "";
 
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
@@ -80,6 +85,10 @@ public class GoogleSignInPlugin extends CordovaPlugin {
             this.disconnect(callbackContext);
             return true;
         } else if (action.equals(Constants.CORDOVA_ACTION_SIGNIN)) {
+            this.mScopes = args.getString(0);
+            if(this.mScopes == null || this.mScopes.trim().isEmpty()) {
+                this.mScopes = "";
+            }
             this.signIn(callbackContext);
             return true;
         } else if (action.equals(Constants.CORDOVA_ACTION_SIGNOUT)) {
@@ -257,10 +266,19 @@ public class GoogleSignInPlugin extends CordovaPlugin {
     }
 
     private GoogleSignInOptions getGoogleSignInOptions() {
-        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken(this.cordova.getActivity().getResources().getString(getAppResource("default_client_id", "string")))
-                .requestEmail()
-                .build();
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN);
+        // if(this.mScopes != null && !this.mScopes.trim().isEmpty()) {
+        //     String[] scopes = this.mScopes.split(",");
+        //     ArrayList<Scope> scopesList = new ArrayList<Scope>();
+        //     for(int i=0; i<scopes.length; i++) {
+        //         scopesList.add(new Scope(scopes[i]));
+        //     }
+        //     gso.requestScopes(scopesList);
+        // }
+        gso.requestScopes(new Scope("https://www.googleapis.com/auth/calendar"), new Scope("https://www.googleapis.com/auth/drive"), new Scope("https://www.googleapis.com/auth/drive.appdata"), new Scope("https://www.googleapis.com/auth/drive.readonly"), new Scope("https://www.googleapis.com/auth/drive.file", new Scope("https://www.googleapis.com/auth/drive.metadata"), new Scope("https://www.googleapis.com/auth/drive.metadata.readonly")));
+        gso.requestIdToken(this.cordova.getActivity().getResources().getString(getAppResource("default_client_id", "string")));
+        gso.requestEmail();
+        gso.build();
         return gso;
     }
 
