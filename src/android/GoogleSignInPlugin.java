@@ -58,6 +58,9 @@ import android.content.pm.Signature;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AccountManagerFuture;
+import android.accounts.AuthenticatorException;
+import android.os.Bundle;
+import android.os.AsyncTask;
 
 public class GoogleSignInPlugin extends CordovaPlugin {
 
@@ -131,7 +134,7 @@ public class GoogleSignInPlugin extends CordovaPlugin {
             Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
             try {
                 account = task.getResult(ApiException.class);
-                getAuthToken(mCurrentActivity, account, false, new AccessTokenCallback() {
+                getAuthToken(mCurrentActivity, account.getAccount(), false, new AccessTokenCallback() {
                     @Override
                     public void onToken(String token) {
                         firebaseAuthWithGoogle(account.getIdToken(), token);
@@ -370,27 +373,42 @@ public class GoogleSignInPlugin extends CordovaPlugin {
          return mContext.getSharedPreferences(Constants.PREF_FILENAME, Context.MODE_PRIVATE);
     }
 
-    private void getAuthToken(Activity activity, Account account, boolean retry, AccessTokenCallback callback) throws Exception {
-        AccountManager manager = AccountManager.get(activity);
-        AccountManagerFuture<Bundle> future = manager.getAuthToken(account, "oauth2:profile email", null, activity, null, null);
-        Bundle bundle = future.getResult();
-        String authToken = bundle.getString(AccountManager.KEY_AUTHTOKEN);
-        try {
-            // return verifyToken(authToken);
-            JSONObject verifiedToken = verifyToken(authToken);
-            if(callback != null) {
-                callback.onToken(verifiedToken.get("accessToken").toString());
-            }
-        } catch (IOException e) {
-            if (retry) {
-                manager.invalidateAuthToken("com.google", authToken);
-                return getAuthToken(activity, account, false, callback);
-            } else {
-                if(callback != null) {
-                    callback.onTokenError(e.getMessage());
+    private void getAuthToken(Activity activity, Account account, boolean retry, AccessTokenCallback callback) {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                AccountManager manager = AccountManager.get(activity);
+                AccountManagerFuture<Bundle> future = manager.getAuthToken(account, "oauth2:profile email", null, activity, null, null);
+                
+                try {
+                    Bundle bundle = future.getResult();
+                    String authToken = bundle.getString(AccountManager.KEY_AUTHTOKEN);
+                    
+                    // return verifyToken(authToken);
+                    JSONObject verifiedToken = verifyToken(authToken);
+                    if(callback != null) {
+                        callback.onToken(verifiedToken.get("accessToken").toString());
+                    }
+                } catch (IOException e) {
+                    if(callback != null) {
+                        callback.onTokenError(e.getMessage());
+                    }
+                } catch (AuthenticatorException e) {
+                    if(callback != null) {
+                        callback.onTokenError(e.getMessage());
+                    }
+                } catch (JSONException e) {
+                    if(callback != null) {
+                        callback.onTokenError(e.getMessage());
+                    }
+                } catch (Exception e) {
+                    if(callback != null) {
+                        callback.onTokenError(e.getMessage());
+                    }
                 }
+                return null;
             }
-        }
+        }.execute();
     }
 
     private JSONObject verifyToken(String authToken) throws IOException, JSONException {
