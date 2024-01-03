@@ -43,6 +43,7 @@ import com.google.firebase.auth.GoogleAuthProvider;
 import com.google.android.gms.common.api.Scope;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.util.ArrayList;
@@ -54,6 +55,9 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.security.MessageDigest;
 import android.content.pm.Signature;
+import android.accounts.Account;
+import android.accounts.AccountManager;
+import android.accounts.AccountManagerFuture;
 
 public class GoogleSignInPlugin extends CordovaPlugin {
 
@@ -76,6 +80,7 @@ public class GoogleSignInPlugin extends CordovaPlugin {
     private final static String FIELD_TOKEN_EXPIRES     = "expires";
     private final static String FIELD_TOKEN_EXPIRES_IN  = "expires_in";
     private final static String VERIFY_TOKEN_URL        = "https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=";
+    public static final int KAssumeStaleTokenSec = 60;
 
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
@@ -374,7 +379,7 @@ public class GoogleSignInPlugin extends CordovaPlugin {
             // return verifyToken(authToken);
             JSONObject verifiedToken = verifyToken(authToken);
             if(callback != null) {
-                callback.onToken(verifiedToken.get("accessToken"));
+                callback.onToken(verifiedToken.get("accessToken").toString());
             }
         } catch (IOException e) {
             if (retry) {
@@ -405,7 +410,6 @@ public class GoogleSignInPlugin extends CordovaPlugin {
             "access_type": "offline"
         }*/
 
-        Log.d("AuthenticatedBackend", "token: " + authToken + ", verification: " + stringResponse);
         JSONObject jsonResponse = new JSONObject(
             stringResponse
         );
@@ -416,6 +420,17 @@ public class GoogleSignInPlugin extends CordovaPlugin {
         jsonResponse.put(FIELD_ACCESS_TOKEN, authToken);
         jsonResponse.put(FIELD_TOKEN_EXPIRES, expires_in + (System.currentTimeMillis()/1000));
         return jsonResponse;
+    }
+
+    public static String fromStream(InputStream is) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+        StringBuilder sb = new StringBuilder();
+        String line = null;
+        while ((line = reader.readLine()) != null) {
+            sb.append(line).append("\n");
+        }
+        reader.close();
+        return sb.toString();
     }
 
     public interface AccessTokenCallback {
