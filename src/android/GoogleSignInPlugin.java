@@ -72,6 +72,10 @@ public class GoogleSignInPlugin extends CordovaPlugin {
 
     //Firas
     private String mScopes = "";
+    private final static String FIELD_ACCESS_TOKEN      = "accessToken";
+    private final static String FIELD_TOKEN_EXPIRES     = "expires";
+    private final static String FIELD_TOKEN_EXPIRES_IN  = "expires_in";
+    private final static String VERIFY_TOKEN_URL        = "https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=";
 
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
