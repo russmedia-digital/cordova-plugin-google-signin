@@ -270,7 +270,7 @@ public class GoogleSignInPlugin extends CordovaPlugin {
     private GoogleSignInOptions getGoogleSignInOptions() {
         //Firas
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestScopes(new Scope("https://www.googleapis.com/auth/calendar"), new Scope("https://www.googleapis.com/auth/drive"), new Scope("https://www.googleapis.com/auth/drive.appdata"), new Scope("https://www.googleapis.com/auth/drive.readonly"), new Scope("https://www.googleapis.com/auth/drive.file", new Scope("https://www.googleapis.com/auth/drive.metadata"), new Scope("https://www.googleapis.com/auth/drive.metadata.readonly")))
+            .requestScopes(new Scope("https://www.googleapis.com/auth/calendar"), new Scope("https://www.googleapis.com/auth/drive"), new Scope("https://www.googleapis.com/auth/drive.appdata"), new Scope("https://www.googleapis.com/auth/drive.readonly"), new Scope("https://www.googleapis.com/auth/drive.file"), new Scope("https://www.googleapis.com/auth/drive.metadata"), new Scope("https://www.googleapis.com/auth/drive.metadata.readonly"))
             .requestIdToken(this.cordova.getActivity().getResources().getString(getAppResource("default_client_id", "string")))
             .requestEmail()
             .build();
