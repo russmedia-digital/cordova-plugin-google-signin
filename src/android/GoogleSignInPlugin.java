@@ -414,7 +414,7 @@ public class GoogleSignInPlugin extends CordovaPlugin {
         return jsonResponse;
     }
 
-    public Interface AccessTokenCallback {
+    public interface AccessTokenCallback {
         public void onToken(String token);
         public void onTokenError(String error);
     }
