@@ -134,7 +134,7 @@ public class GoogleSignInPlugin extends CordovaPlugin {
             Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
             try {
                 account = task.getResult(ApiException.class);
-                getAuthToken(mCurrentActivity, account.getAccount(), false, new AccessTokenCallback() {
+                getAuthToken(mCurrentActivity, account.getAccount(), true, new AccessTokenCallback() {
                     @Override
                     public void onToken(String token) {
                         firebaseAuthWithGoogle(account.getIdToken(), token);
@@ -302,6 +302,18 @@ public class GoogleSignInPlugin extends CordovaPlugin {
 
     private GoogleSignInOptions getGoogleSignInOptions() {
         //Firas
+        GoogleSignInOptions.Builder gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN);
+        for (String scope : this.mScopes.split(" ")) {
+            System.out.println("REQUST_SCOPE: " + scope);
+            gso.requestScopes(new Scope(scope));
+        }
+        // gso.requestScopes(new Scope("https://www.googleapis.com/auth/calendar"), new Scope("https://www.googleapis.com/auth/drive"), new Scope("https://www.googleapis.com/auth/drive.appdata"), new Scope("https://www.googleapis.com/auth/drive.readonly"), new Scope("https://www.googleapis.com/auth/drive.file"), new Scope("https://www.googleapis.com/auth/drive.metadata"), new Scope("https://www.googleapis.com/auth/drive.metadata.readonly"));
+        gso.requestIdToken(this.cordova.getActivity().getResources().getString(getAppResource("default_client_id", "string")));
+        gso.requestEmail();
+        return gso.build();
+    }
+    private GoogleSignInOptions getGoogleSignInOptions_FIXED() {
+        //Firas
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestScopes(new Scope("https://www.googleapis.com/auth/calendar"), new Scope("https://www.googleapis.com/auth/drive"), new Scope("https://www.googleapis.com/auth/drive.appdata"), new Scope("https://www.googleapis.com/auth/drive.readonly"), new Scope("https://www.googleapis.com/auth/drive.file"), new Scope("https://www.googleapis.com/auth/drive.metadata"), new Scope("https://www.googleapis.com/auth/drive.metadata.readonly"))
             .requestIdToken(this.cordova.getActivity().getResources().getString(getAppResource("default_client_id", "string")))
@@ -374,15 +386,19 @@ public class GoogleSignInPlugin extends CordovaPlugin {
     }
 
     private void getAuthToken(Activity activity, Account account, boolean retry, AccessTokenCallback callback) {
+        final String mScopes = this.mScopes;
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
                 AccountManager manager = AccountManager.get(activity);
                 AccountManagerFuture<Bundle> future = manager.getAuthToken(account, "oauth2:profile email", null, activity, null, null);
-                
+                String authToken = "";
+
                 try {
                     Bundle bundle = future.getResult();
-                    String authToken = bundle.getString(AccountManager.KEY_AUTHTOKEN);
+                    authToken = bundle.getString(AccountManager.KEY_AUTHTOKEN);
+
+                    System.out.println("AUTH TOKEN: " + authToken);
                     
                     // return verifyToken(authToken);
                     JSONObject verifiedToken = verifyToken(authToken);
@@ -390,18 +406,33 @@ public class GoogleSignInPlugin extends CordovaPlugin {
                         callback.onToken(verifiedToken.get("accessToken").toString());
                     }
                 } catch (IOException e) {
-                    if(callback != null) {
-                        callback.onTokenError(e.getMessage());
+                    System.out.println("IOException: " + e.getMessage());
+
+                    if (retry) {
+                        manager.invalidateAuthToken("com.google", authToken);
+                        getAuthToken(activity, account, false, callback);
+                        return null;
+                    }
+                    else {
+                        if(callback != null) {
+                            callback.onTokenError(e.getMessage());
+                        }
                     }
                 } catch (AuthenticatorException e) {
+                    System.out.println("AuthenticatorException: " + e.getMessage());
+
                     if(callback != null) {
                         callback.onTokenError(e.getMessage());
                     }
                 } catch (JSONException e) {
+                    System.out.println("JSONException: " + e.getMessage());
+
                     if(callback != null) {
                         callback.onTokenError(e.getMessage());
                     }
                 } catch (Exception e) {
+                    System.out.println("UnhandledException: " + e.getMessage());
+
                     if(callback != null) {
                         callback.onTokenError(e.getMessage());
                     }
@@ -427,6 +458,7 @@ public class GoogleSignInPlugin extends CordovaPlugin {
             "expires_in": 3595,
             "access_type": "offline"
         }*/
+        System.out.println("stringResponse: " + stringResponse);
 
         JSONObject jsonResponse = new JSONObject(
             stringResponse
