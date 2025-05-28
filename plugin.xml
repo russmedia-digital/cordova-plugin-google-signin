@@ -57,7 +57,7 @@
             </config>
             <pods use-frameworks="true">
               <pod name="GoogleSignIn" spec="~> 7.0.0" />
-              <pod name="GoogleUtilities" spec="~> 8.0.0" />
+              <pod name="GoogleUtilities" spec="~> 8.1.0" />
             </pods>
           </podspec>
 
