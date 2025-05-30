@@ -115,16 +115,14 @@
 }
 
 - (void)disconnect:(CDVInvokedUrlCommand*)command {
-    GIDGoogleUser *user = [GIDSignIn sharedInstance].currentUser;
-
-    if (!user || !user.authentication || !user.authentication.accessToken) {
-        NSDictionary *details = @{@"status": @"error", @"message": @"No signed-in user or missing access token"};
+    if (!self?.lastAuthentication || !self?.lastAuthentication?.accessToken) {
+        NSDictionary *details = @{@"status": @"error", @"message": @"No access token available"};
         CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
         return;
     }
 
-    NSString *accessToken = user.authentication.accessToken;
+    NSString *accessToken = self.lastAuthentication.accessToken;
 
     NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://accounts.google.com/o/oauth2/revoke?token=%@", accessToken]];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
@@ -138,14 +136,8 @@
                 NSDictionary *details = @{@"status": @"success", @"message": @"Disconnected"};
                 CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
                 [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-            } else {
-                NSDictionary *details = @{@"status": @"error", @"message": [error localizedDescription]};
-                CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
-                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-            }
-        });
-    }] resume];
-}
+           
+
 
 
 
