@@ -9,6 +9,9 @@
 
 @property (nonatomic, assign) BOOL isSigningIn;
 @property (nonatomic, copy) NSString* callbackId;
+
+- (NSString*)toJSONString:(NSDictionary*)dictionaryOrArray;
+
 @end
 
 @implementation GoogleSignInPlugin
@@ -46,21 +49,23 @@
 
     if (reversedClientId == nil) {
         NSDictionary *errorDetails = @{@"status": @"error", @"message": @"Could not find REVERSED_CLIENT_ID url scheme in app .plist"};
-        CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
+        CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:_callbackId];
         return;
     }
 
-    GIDSignIn *signIn = [GIDSignIn sharedInstance];
+    NSString *clientId = [self reverseUrlScheme:reversedClientId];
 
-    [signIn signInWithPresentingViewController:self.viewController
-                                    completion:^(GIDSignInResult * _Nullable signInResult, NSError * _Nullable error) {
-        if (error != nil) {
+    GIDConfiguration *config = [[GIDConfiguration alloc] initWithClientID:clientId];
+    
+    GIDSignIn *signIn = GIDSignIn.sharedInstance;
+    
+    [signIn signInWithConfiguration:config presentingViewController:self.viewController callback:^(GIDGoogleUser * _Nullable user, NSError * _Nullable error) {
+        if (error) {
             NSDictionary *errorDetails = @{@"status": @"error", @"message": error.localizedDescription};
-            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
+            CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:self->_callbackId];
         } else {
-            GIDGoogleUser *user = signInResult.user;
             NSString *email = user.profile.email;
             NSString *userId = user.userID;
             NSURL *imageUrl = [user.profile imageURLWithDimension:120];
@@ -76,12 +81,12 @@
             };
 
             NSDictionary *response = @{@"message": result, @"status": @"success"};
-
-            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:response]];
+            
+            CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: [self toJSONString:response]];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:self->_callbackId];
         }
     }];
-}
+
 
 - (NSString*) reverseUrlScheme:(NSString*)scheme {
     NSArray* originalArray = [scheme componentsSeparatedByString:@"."];
@@ -106,7 +111,7 @@
     }
     return nil;
 }
-
+}   
 - (void) signOut:(CDVInvokedUrlCommand*)command {
     [GIDSignIn.sharedInstance signOut];
     NSDictionary *details = @{@"status": @"success", @"message": @"Logged out"};
