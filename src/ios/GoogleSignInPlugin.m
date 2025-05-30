@@ -47,40 +47,38 @@
 
     if (reversedClientId == nil) {
         NSDictionary *errorDetails = @{@"status": @"error", @"message": @"Could not find REVERSED_CLIENT_ID url scheme in app .plist"};
-        CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
+        CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:_callbackId];
         return;
     }
 
-    NSString *clientId = [self reverseUrlScheme:reversedClientId];
+    GIDSignIn *signIn = [GIDSignIn sharedInstance];
 
-    GIDConfiguration *config = [[GIDConfiguration alloc] initWithClientID:clientId];
-    
-    GIDSignIn *signIn = GIDSignIn.sharedInstance;
-    
-    [signIn signInWithConfiguration:config presentingViewController:self.viewController callback:^(GIDGoogleUser * _Nullable user, NSError * _Nullable error) {
-        if (error) {
+    [signIn signInWithPresentingViewController:self.viewController
+                                    completion:^(GIDSignInResult * _Nullable signInResult, NSError * _Nullable error) {
+        if (error != nil) {
             NSDictionary *errorDetails = @{@"status": @"error", @"message": error.localizedDescription};
-            CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:self->_callbackId];
         } else {
+            GIDGoogleUser *user = signInResult.user;
             NSString *email = user.profile.email;
             NSString *userId = user.userID;
-            NSURL *imageUrl = [user.profile imageURLWithDimension:120]; // TODO pass in img size as param, and try to sync with Android
-            NSDictionary *result = @{
-                           @"email"            : email,
-                           @"id"               : userId,
-                           @"id_token"         : user.authentication.idToken,
-                           @"display_name"     : user.profile.name       ? : [NSNull null],
-                           @"given_name"       : user.profile.givenName  ? : [NSNull null],
-                           @"family_name"      : user.profile.familyName ? : [NSNull null],
-                           @"photo_url"        : imageUrl ? imageUrl.absoluteString : [NSNull null],
-                           };
+            NSURL *imageUrl = [user.profile imageURLWithDimension:120];
 
+            NSDictionary *result = @{
+                @"email": email ? email : [NSNull null],
+                @"id": userId ? userId : [NSNull null],
+                @"id_token": user.idToken.tokenString ? user.idToken.tokenString : [NSNull null],
+                @"display_name": user.profile.name ? user.profile.name : [NSNull null],
+                @"given_name": user.profile.givenName ? user.profile.givenName : [NSNull null],
+                @"family_name": user.profile.familyName ? user.profile.familyName : [NSNull null],
+                @"photo_url": imageUrl ? imageUrl.absoluteString : [NSNull null]
+            };
 
             NSDictionary *response = @{@"message": result, @"status": @"success"};
-            
-            CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: [self toJSONString:response]];
+
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:response]];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:self->_callbackId];
         }
     }];
@@ -118,18 +116,38 @@
 }
 
 - (void) disconnect:(CDVInvokedUrlCommand*)command {
-    [GIDSignIn.sharedInstance disconnectWithCallback:^(NSError * _Nullable error) {
-        if(error == nil) {
-            NSDictionary *details = @{@"status": @"success", @"message": @"Disconnected"};
-            CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
-            [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-        } else {
-            NSDictionary *details = @{@"status": @"error", @"message": [error localizedDescription]};
-            CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
-            [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-        }
-    }];
+    // Revoke access manually (GoogleSignIn v8 no longer has disconnectWithCallback)
+    GIDGoogleUser *user = [GIDSignIn sharedInstance].currentUser;
+    NSString *accessToken = user.authentication.accessToken;
+
+    if (accessToken == nil) {
+        NSDictionary *details = @{@"status": @"error", @"message": @"No user access token available"};
+        CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+        return;
+    }
+
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://accounts.google.com/o/oauth2/revoke?token=%@", accessToken]];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    [request setHTTPMethod:@"GET"];
+
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request
+                                     completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!error) {
+                [[GIDSignIn sharedInstance] signOut]; // Also sign out locally
+                NSDictionary *details = @{@"status": @"success", @"message": @"Disconnected"};
+                CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
+                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+            } else {
+                NSDictionary *details = @{@"status": @"error", @"message": [error localizedDescription]};
+                CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
+                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+            }
+        });
+    }] resume];
 }
+
 
 - (void) isSignedIn:(CDVInvokedUrlCommand*)command {
     bool isSignedIn = [GIDSignIn.sharedInstance currentUser] != nil;
