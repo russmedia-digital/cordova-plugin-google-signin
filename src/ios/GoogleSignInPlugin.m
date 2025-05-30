@@ -1,10 +1,8 @@
 /********* GoogleSignInPlugin.m Cordova Plugin Implementation *******/
 
 #import <Cordova/CDV.h>
+#import <GoogleSignIn/GoogleSignIn.h>
 
-#import <GoogleSignIn/GIDSignIn.h>
-#import <GoogleSignIn/GIDGoogleUser.h>
-#import <GoogleSignIn/GIDAuthentication.h>
 @interface GoogleSignInPlugin : CDVPlugin {
   // Member variables go here.
 }
@@ -136,7 +134,7 @@
                                      completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (!error) {
-                [[GIDSignIn sharedInstance] signOut]; // Also sign out locally
+                [[GIDSignIn sharedInstance] signOut];
                 NSDictionary *details = @{@"status": @"success", @"message": @"Disconnected"};
                 CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
                 [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
