@@ -2,8 +2,9 @@
 
 #import <Cordova/CDV.h>
 
-#import <GoogleSignIn/GoogleSignIn.h>
-
+#import <GoogleSignIn/GIDSignIn.h>
+#import <GoogleSignIn/GIDGoogleUser.h>
+#import <GoogleSignIn/GIDAuthentication.h>
 @interface GoogleSignInPlugin : CDVPlugin {
   // Member variables go here.
 }
@@ -118,42 +119,36 @@
 - (void)disconnect:(CDVInvokedUrlCommand*)command {
     GIDGoogleUser *user = [GIDSignIn sharedInstance].currentUser;
 
-    if (!user) {
-        NSDictionary *details = @{@"status": @"error", @"message": @"No signed-in user"};
+    if (!user || !user.authentication || !user.authentication.accessToken) {
+        NSDictionary *details = @{@"status": @"error", @"message": @"No signed-in user or missing access token"};
         CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
         return;
     }
 
-    [user authenticationWithCompletion:^(GIDAuthentication * _Nullable auth, NSError * _Nullable error) {
-        if (error || !auth.accessToken) {
-            NSDictionary *details = @{@"status": @"error", @"message": @"Could not retrieve access token"};
-            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
-            [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-            return;
-        }
+    NSString *accessToken = user.authentication.accessToken;
 
-        NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://accounts.google.com/o/oauth2/revoke?token=%@", auth.accessToken]];
-        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
-        [request setHTTPMethod:@"GET"];
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://accounts.google.com/o/oauth2/revoke?token=%@", accessToken]];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    [request setHTTPMethod:@"GET"];
 
-        [[[NSURLSession sharedSession] dataTaskWithRequest:request
-                                         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                if (!error) {
-                    [[GIDSignIn sharedInstance] signOut];
-                    NSDictionary *details = @{@"status": @"success", @"message": @"Disconnected"};
-                    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
-                    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-                } else {
-                    NSDictionary *details = @{@"status": @"error", @"message": [error localizedDescription]};
-                    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
-                    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-                }
-            });
-        }] resume];
-    }];
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request
+                                     completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!error) {
+                [[GIDSignIn sharedInstance] signOut]; // Also sign out locally
+                NSDictionary *details = @{@"status": @"success", @"message": @"Disconnected"};
+                CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
+                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+            } else {
+                NSDictionary *details = @{@"status": @"error", @"message": [error localizedDescription]};
+                CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
+                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+            }
+        });
+    }] resume];
 }
+
 
 
 
