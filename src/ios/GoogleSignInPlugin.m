@@ -115,7 +115,7 @@
 }
 
 - (void)disconnect:(CDVInvokedUrlCommand*)command {
-    if (!self?.lastAuthentication || !self?.lastAuthentication?.accessToken) {
+    if (self.lastAuthentication == nil || self.lastAuthentication.accessToken == nil) {
         NSDictionary *details = @{@"status": @"error", @"message": @"No access token available"};
         CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
@@ -128,15 +128,18 @@
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
     [request setHTTPMethod:@"GET"];
 
-    [[[NSURLSession sharedSession] dataTaskWithRequest:request
+    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request
                                      completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (!error) {
-                [[GIDSignIn sharedInstance] signOut];
+                // Removed redundant sign-out call as disconnect already handles it
                 NSDictionary *details = @{@"status": @"success", @"message": @"Disconnected"};
                 CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
                 [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-           
+            }
+        });
+    }];
+    [task resume];
 
 
 
