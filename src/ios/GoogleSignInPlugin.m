@@ -1,7 +1,6 @@
 /********* GoogleSignInPlugin.m Cordova Plugin Implementation *******/
 
 #import <Cordova/CDV.h>
-
 #import <GoogleSignIn/GoogleSignIn.h>
 
 @interface GoogleSignInPlugin : CDVPlugin {
@@ -10,16 +9,25 @@
 
 @property (nonatomic, assign) BOOL isSigningIn;
 @property (nonatomic, copy) NSString* callbackId;
+@property (nonatomic, copy) NSString* clientId;
+@property (nonatomic, copy) NSString* reversedClientId;
+
 @end
 
 @implementation GoogleSignInPlugin
 
-- (void)pluginInitialize
-{
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleOpenURL:) name:CDVPluginHandleOpenURLNotification object:nil];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleOpenURLWithAppSourceAndAnnotation:) name:CDVPluginHandleOpenURLWithAppSourceAndAnnotationNotification object:nil];
+- (void)pluginInitialize {
+    [super pluginInitialize];
+    
+    self.clientId = [self getClientId];
+    self.reversedClientId = [self getreversedClientId];
+    
+    if (!self.clientId || !self.reversedClientId) {
+        NSLog(@"Google Sign-In configuration error:");
+        NSLog(@"Client ID: %@", self.clientId ? @"Exists" : @"MISSING");
+        NSLog(@"Reversed Client ID: %@", self.reversedClientId ? @"Exists" : @"MISSING");
+    }
 }
-
 //============
 
 - (void)handleOpenURL:(NSNotification*)notification
@@ -30,70 +38,78 @@
 - (void)handleOpenURLWithAppSourceAndAnnotation:(NSNotification*)notification
 {
     NSMutableDictionary * options = [notification object];
-
     NSURL* url = options[@"url"];
-
     NSString* possibleReversedClientId = [url.absoluteString componentsSeparatedByString:@":"].firstObject;
 
-    if ([possibleReversedClientId isEqualToString:self.getreversedClientId] && self.isSigningIn) {
+    if ([possibleReversedClientId isEqualToString:self.reversedClientId] && self.isSigningIn) {
         self.isSigningIn = NO;
         [GIDSignIn.sharedInstance handleURL:url];
     }
 }
 
-- (void) signIn:(CDVInvokedUrlCommand*)command {
-	self.callbackId = command.callbackId;
-	NSString *reversedClientId = [self getreversedClientId];
+- (void)signIn:(CDVInvokedUrlCommand*)command {
+    self.callbackId = command.callbackId;
+    
+    if (!self.clientId) {
+        NSDictionary *errorDetails = @{
+            @"status": @"error",
+            @"message": @"Missing GIDClientID. Verify your plugin variables and rebuild."
+        };
+        CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+        return;
+    }
 
-	if (reversedClientId == nil) {
-		NSDictionary *errorDetails = @{@"status": @"error", @"message": @"Could not find REVERSED_CLIENT_ID url scheme in app .plist"};
-		CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
-		[self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
-		return;
-	}
-
-	NSString *clientId = [self reverseUrlScheme:reversedClientId];
-
-	[GIDSignIn.sharedInstance signInWithPresentingViewController:self.viewController
-												   hint:nil
-										 additionalScopes:nil
-											   completion:^(GIDSignInResult * _Nullable signInResult, NSError * _Nullable error) {
-		if (error) {
-			NSDictionary *errorDetails = @{@"status": @"error", @"message": error.localizedDescription};
-			CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
-			[self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
-		} else {
-			GIDGoogleUser *user = signInResult.user;
-			NSString *email = user.profile.email;
-			NSString *userId = user.userID;
-			NSURL *imageUrl = [user.profile imageURLWithDimension:120];
-
-			NSDictionary *result = @{
-				@"email": email ? email : [NSNull null],
-				@"id": userId ? userId : [NSNull null],
-				@"id_token": user.grantedScopes ? user.grantedScopes : [NSNull null],
-				@"display_name": user.profile.name ? user.profile.name : [NSNull null],
-				@"given_name": user.profile.givenName ? user.profile.givenName : [NSNull null],
-				@"family_name": user.profile.familyName ? user.profile.familyName : [NSNull null],
-				@"photo_url": imageUrl ? imageUrl.absoluteString : [NSNull null]
-			};
-
-			NSDictionary *response = @{@"message": result, @"status": @"success"};
-
-			CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: [self toJSONString:response]];
-			[self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
-		}
-	}];
+    // Configure Google Sign-In
+    GIDConfiguration *config = [[GIDConfiguration alloc] initWithClientID:self.clientId];
+    [GIDSignIn.sharedInstance setConfiguration:config];
+    
+    self.isSigningIn = YES;
+    
+    [GIDSignIn.sharedInstance signInWithPresentingViewController:self.viewController
+                                              completion:^(GIDSignInResult * _Nullable signInResult,
+                                                          NSError * _Nullable error) {
+        self.isSigningIn = NO;
+        
+        if (error) {
+            NSDictionary *errorDetails = @{@"status": @"error", @"message": error.localizedDescription};
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
+            [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+        } else {
+            GIDGoogleUser *user = signInResult.user;
+            NSString *email = user.profile.email;
+            NSString *userId = user.userID;
+            NSURL *imageUrl = [user.profile imageURLWithDimension:120];
+            NSString *idToken = user.idToken.tokenString;
+            NSString *serverAuthCode = signInResult.serverAuthCode;
+            
+            NSDictionary *result = @{
+                @"email": email ?: [NSNull null],
+                @"id": userId ?: [NSNull null],
+                @"id_token": idToken ?: [NSNull null],
+                @"display_name": user.profile.name ?: [NSNull null],
+                @"given_name": user.profile.givenName ?: [NSNull null],
+                @"family_name": user.profile.familyName ?: [NSNull null],
+                @"photo_url": imageUrl ? imageUrl.absoluteString : [NSNull null],
+                @"server_auth_code": serverAuthCode ?: [NSNull null]
+            };
+            
+            NSDictionary *response = @{@"message": result, @"status": @"success"};
+            
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:response]];
+            [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+        }
+    }];
 }
 
-- (NSString*) reverseUrlScheme:(NSString*)scheme {
+- (NSString*)reverseUrlScheme:(NSString*)scheme {
     NSArray* originalArray = [scheme componentsSeparatedByString:@"."];
     NSArray* reversedArray = [[originalArray reverseObjectEnumerator] allObjects];
     NSString* reversedString = [reversedArray componentsJoinedByString:@"."];
     return reversedString;
 }
 
-- (NSString*) getreversedClientId {
+- (NSString*)getreversedClientId {
     NSArray* URLTypes = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleURLTypes"];
 
     if (URLTypes != nil) {
@@ -110,59 +126,64 @@
     return nil;
 }
 
-- (void) signOut:(CDVInvokedUrlCommand*)command {
+- (NSString*)getClientId {
+    // Method 1: Directly from Info.plist dictionary
+    NSString *clientId = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"GIDClientID"];
+    if (clientId) {
+        return clientId;
+    }
+    
+    // Method 2: Fallback - read from plist file directly
+    NSString *path = [[NSBundle mainBundle] pathForResource:@"Info" ofType:@"plist"];
+    NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:path];
+    clientId = [dict objectForKey:@"GIDClientID"];
+    
+    if (!clientId) {
+        NSLog(@"GIDClientID not found in Info.plist. Please verify your plugin configuration.");
+    }
+    
+    return clientId;
+}
+
+- (void)signOut:(CDVInvokedUrlCommand*)command {
     [GIDSignIn.sharedInstance signOut];
     NSDictionary *details = @{@"status": @"success", @"message": @"Logged out"};
-    CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
+    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
     [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
 }
 
-- (void) disconnect:(CDVInvokedUrlCommand*)command {
+- (void)disconnect:(CDVInvokedUrlCommand*)command {
     [GIDSignIn.sharedInstance disconnectWithCompletion:^(NSError * _Nullable error) {
         if(error == nil) {
             NSDictionary *details = @{@"status": @"success", @"message": @"Disconnected"};
-            CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
         } else {
             NSDictionary *details = @{@"status": @"error", @"message": [error localizedDescription]};
-            CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:details]];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
         }
     }];
 }
 
-- (void) isSignedIn:(CDVInvokedUrlCommand*)command {
+- (void)isSignedIn:(CDVInvokedUrlCommand*)command {
     bool isSignedIn = [GIDSignIn.sharedInstance currentUser] != nil;
     NSDictionary *details = @{@"status": @"success", @"message": (isSignedIn) ? @"true" : @"false"};
-    CDVPluginResult * pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
+    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
     [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-}
-
-#pragma mark - GIDSignInDelegate
-- (void)signIn:(GIDSignIn *)signIn didSignInForUser:(GIDGoogleUser *)user withError:(NSError *)error {
-    
-}
-
-- (void)signIn:(GIDSignIn *)signIn presentViewController:(UIViewController *)viewController {
-    self.isSigningIn = YES;
-    [self.viewController presentViewController:viewController animated:YES completion:nil];
-}
-
-- (void)signIn:(GIDSignIn *)signIn dismissViewController:(UIViewController *)viewController {
-    [self.viewController dismissViewControllerAnimated:YES completion:nil];
 }
 
 - (NSString*)toJSONString:(NSDictionary*)dictionaryOrArray {
     NSError *error;
-         NSData *jsonData = [NSJSONSerialization dataWithJSONObject:dictionaryOrArray
-                                                       options:NSJSONWritingPrettyPrinted
-                                                         error:&error];
-         if (! jsonData) {
-            NSLog(@"%s: error: %@", __func__, error.localizedDescription);
-            return @"{}";
-         } else {
-            return [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-         }
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:dictionaryOrArray
+                                                   options:NSJSONWritingPrettyPrinted
+                                                     error:&error];
+    if (!jsonData) {
+        NSLog(@"%s: error: %@", __func__, error.localizedDescription);
+        return @"{}";
+    } else {
+        return [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+    }
 }
 
 @end
