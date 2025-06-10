@@ -78,10 +78,11 @@
         } else {
             GIDGoogleUser *user = signInResult.user;
             NSString *email = user.profile.email;
-            NSString *userId = user.userID;
             NSURL *imageUrl = [user.profile imageURLWithDimension:120];
-            NSString *idToken = user.idToken.tokenString;
             NSString *serverAuthCode = signInResult.serverAuthCode;
+
+            NSString *idToken = signInResult.user.idToken.tokenString;
+            NSString *userId = signInResult.user.identifier;
             
             NSDictionary *result = @{
                 @"email": email ?: [NSNull null],
