@@ -2,6 +2,8 @@
 
 #import <Cordova/CDV.h>
 #import <GoogleSignIn/GoogleSignIn.h>
+#import <GoogleSignIn/GIDSignInResult.h>
+#import <GoogleSignIn/GIDGoogleUser.h>
 
 @interface GoogleSignInPlugin : CDVPlugin {
   // Member variables go here.
@@ -49,7 +51,7 @@
 
 - (void)signIn:(CDVInvokedUrlCommand*)command {
     self.callbackId = command.callbackId;
-    
+
     if (!self.clientId) {
         NSDictionary *errorDetails = @{
             @"status": @"error",
@@ -60,30 +62,27 @@
         return;
     }
 
-    // Configure Google Sign-In
     GIDConfiguration *config = [[GIDConfiguration alloc] initWithClientID:self.clientId];
-    [GIDSignIn.sharedInstance setConfiguration:config];
     
     self.isSigningIn = YES;
-    
-    [GIDSignIn.sharedInstance signInWithPresentingViewController:self.viewController
-                                              completion:^(GIDSignInResult * _Nullable signInResult,
-                                                          NSError * _Nullable error) {
+
+    [GIDSignIn.sharedInstance signInWithConfiguration:config
+                          presentingViewController:self.viewController
+                                          callback:^(GIDGoogleUser * _Nullable user, NSError * _Nullable error) {
         self.isSigningIn = NO;
-        
+
         if (error) {
             NSDictionary *errorDetails = @{@"status": @"error", @"message": error.localizedDescription};
             CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[self toJSONString:errorDetails]];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
         } else {
-            GIDGoogleUser *user = signInResult.user;
             NSString *email = user.profile.email;
             NSURL *imageUrl = [user.profile imageURLWithDimension:120];
-            NSString *serverAuthCode = signInResult.serverAuthCode;
+            NSString *serverAuthCode = user.serverAuthCode;
 
-            NSString *idToken = signInResult.user.idToken.tokenString;
-            NSString *userId = signInResult.user.identifier;
-            
+            NSString *idToken = user.authentication.idToken;
+            NSString *userId = user.userID;
+
             NSDictionary *result = @{
                 @"email": email ?: [NSNull null],
                 @"id": userId ?: [NSNull null],
@@ -94,9 +93,9 @@
                 @"photo_url": imageUrl ? imageUrl.absoluteString : [NSNull null],
                 @"server_auth_code": serverAuthCode ?: [NSNull null]
             };
-            
+
             NSDictionary *response = @{@"message": result, @"status": @"success"};
-            
+
             CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:response]];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
         }
@@ -155,7 +154,7 @@
 
 - (void)disconnect:(CDVInvokedUrlCommand*)command {
     [GIDSignIn.sharedInstance disconnectWithCompletion:^(NSError * _Nullable error) {
-        if(error == nil) {
+        if (error == nil) {
             NSDictionary *details = @{@"status": @"success", @"message": @"Disconnected"};
             CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:[self toJSONString:details]];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
