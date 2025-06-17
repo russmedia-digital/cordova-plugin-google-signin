@@ -35,13 +35,12 @@
         </config-file>
         <source-file src="src/ios/GoogleSignInPlugin.m" />
 
-        <preference name="REVERSED_CLIENT_ID" />
-        <preference name="CLIENT_ID" />
+        <preference name="GID_CLIENT_ID" />
+        <config-file target="*-Info.plist" parent="GIDClientID">
+            <string>$GID_CLIENT_ID</string>
+        </config-file>
 
-        <edit-config file="*-Info.plist" mode="merge" target="GIDClientID">
-            <string>$CLIENT_ID</string>
-        </edit-config>
-    
+        <preference name="REVERSED_CLIENT_ID" />
 
         <config-file target="*-Info.plist" parent="CFBundleURLTypes">
             <array>
@@ -60,11 +59,11 @@
 
         <podspec>
             <config>
-                <source url="https://cdn.cocoapods.org/"/>
+                <source url="https://cdn.cocoapods.org/" />
             </config>
             <pods use-frameworks="true">
-                <pod name="GoogleSignIn" spec="~> 7.0.0" />
-                <pod name="GoogleUtilities" spec="~> 8.1.0" />
+                <pod name="GoogleSignIn" spec="7.0.0" />
+                <pod name="GoogleUtilities" spec="8.0.0" />
             </pods>
         </podspec>
 
